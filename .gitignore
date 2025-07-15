@@ -1,0 +1,22 @@
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+
+# Dependency directories
+client/node_modules/
+server/node_modules/
+
+# Build output
+client/dist/
+client/build/
+server/dist/
+server/build/
+
+# Environment files
+client/.env
+client/.env.local
+server/.env
+server/.env.local
