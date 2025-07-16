@@ -34,30 +34,52 @@ const DevBoard = () => {
 
   // Resources state
   const [resources, setResources] = useState([]);
+  // Goals state
+  const [goals, setGoals] = useState([]);
+  const [loadingGoals, setLoadingGoals] = useState(true);
   
-  // Load resources when component mounts
+  // Load resources and goals when component mounts
   useEffect(() => {
-    const fetchResources = async () => {
+    const fetchData = async () => {
       try {
         const token = localStorage.getItem('token');
-        const response = await fetch(`${API_URL}/api/resources`, {
+        
+        // Fetch resources
+        const resourcesResponse = await fetch(`${API_URL}/api/resources`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
         });
         
-        if (!response.ok) {
+        if (!resourcesResponse.ok) {
           throw new Error('Failed to fetch resources');
         }
         
-        const data = await response.json();
-        setResources(data);
+        const resourcesData = await resourcesResponse.json();
+        setResources(resourcesData);
+        
+        // Fetch goals
+        setLoadingGoals(true);
+        const goalsResponse = await fetch(`${API_URL}/api/goals`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (!goalsResponse.ok) {
+          throw new Error('Failed to fetch goals');
+        }
+        
+        const goalsData = await goalsResponse.json();
+        setGoals(goalsData);
       } catch (error) {
-        console.error('Error fetching resources:', error);
+        console.error('Error fetching data:', error);
+      } finally {
+        setLoadingGoals(false);
       }
     };
 
-    fetchResources();
+    fetchData();
   }, []);
 
   const [newResource, setNewResource] = useState({
@@ -67,31 +89,6 @@ const DevBoard = () => {
     type: 'article',
     date: new Date().toISOString().split('T')[0]
   });
-
-  // Goals state
-  const [goals, setGoals] = useState([
-    {
-      id: 1,
-      title: "Solve 5 LeetCode problems",
-      type: "DSA",
-      completed: false,
-      date: "2025-07-15"
-    },
-    {
-      id: 2,
-      title: "Complete React component",
-      type: "Project",
-      completed: true,
-      date: "2025-07-15"
-    },
-    {
-      id: 3,
-      title: "Read system design chapter",
-      type: "Study",
-      completed: false,
-      date: "2025-07-15"
-    }
-  ]);
 
   const [newGoal, setNewGoal] = useState({
     title: '',
@@ -116,10 +113,34 @@ const DevBoard = () => {
   };
 
   // Toggle goal completion
-  const toggleGoal = (id) => {
-    setGoals(goals.map(goal => 
-      goal.id === id ? { ...goal, completed: !goal.completed } : goal
-    ));
+  const toggleGoal = async (id) => {
+    try {
+      const token = localStorage.getItem('token');
+      const goal = goals.find(g => g.id === id);
+      
+      const response = await fetch(`${API_URL}/api/goals/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          completed: !goal.completed
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to update goal');
+      }
+      
+      const updatedGoal = await response.json();
+      
+      setGoals(goals.map(g => 
+        g.id === id ? updatedGoal : g
+      ));
+    } catch (error) {
+      console.error('Error toggling goal:', error);
+    }
   };
 
   // Get color for goal/resource type
@@ -128,32 +149,73 @@ const DevBoard = () => {
       DSA: 'bg-blue-500',
       Project: 'bg-green-500',
       Study: 'bg-purple-500',
-      article: 'bg-yellow-500',
-      video: 'bg-red-500'
+      Course: 'bg-gray-400',
+      'Open Source': 'bg-pink-500',
+      Revision: 'bg-yellow-500',
+      Reading: 'bg-indigo-500',
+      'Mock Interview': 'bg-red-500',
+      Resume: 'bg-orange-500',
+      Content: 'bg-teal-500',
     };
     return colors[type] || 'bg-gray-500';
   };
 
-  const handleAddGoal = () => {
+  const handleAddGoal = async () => {
     if (!newGoal.title.trim()) {
       alert('Please enter a goal title');
       return;
     }
     
-    setGoals([...goals, {
-      id: Math.max(0, ...goals.map(g => g.id)) + 1,
-      title: newGoal.title,
-      type: newGoal.type,
-      completed: false,
-      date: newGoal.date
-    }]);
-    
-    setNewGoal({
-      title: '',
-      type: 'DSA',
-      date: new Date().toISOString().split('T')[0]
-    });
-    setShowAddGoal(false);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/api/goals`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          title: newGoal.title,
+          type: newGoal.type
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to add goal');
+      }
+      
+      const addedGoal = await response.json();
+      
+      setGoals([...goals, addedGoal]);
+      setNewGoal({
+        title: '',
+        type: 'DSA',
+        date: new Date().toISOString().split('T')[0]
+      });
+      setShowAddGoal(false);
+    } catch (error) {
+      console.error('Error adding goal:', error);
+    }
+  };
+
+  const handleDeleteGoal = async (id) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/api/goals/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to delete goal');
+      }
+      
+      setGoals(goals.filter(goal => goal.id !== id));
+    } catch (error) {
+      console.error('Error deleting goal:', error);
+    }
   };
 
   const handleAddResource = async () => {
@@ -504,8 +566,8 @@ const DevBoard = () => {
       icon: Target,
       iconBg: 'bg-blue-100 text-blue-600',
       summary: {
-        count: `${goals.length} tasks today`,
-        last: `${goals.filter(g => g.completed).length} done`
+        count: loadingGoals ? 'Loading...' : `${goals.length} tasks today`,
+        last: loadingGoals ? '' : `${goals.filter(g => g.completed).length} done`
       },
       expandedContent: (
         <div className="space-y-4">
@@ -543,13 +605,21 @@ const DevBoard = () => {
                 />
                 <select
                   value={newGoal.type}
-                  onChange={(e) => setNewGoal({...newGoal, type: e.target.value})}
+                  onChange={(e) => setNewGoal({ ...newGoal, type: e.target.value })}
                   className={`w-full p-2 rounded border ${darkMode ? 'bg-gray-600 border-gray-500 text-white' : 'bg-white border-gray-300'}`}
                 >
                   <option value="DSA">DSA</option>
                   <option value="Project">Project</option>
                   <option value="Study">Study</option>
+                  <option value="Open Source">Open Source</option>
+                  <option value="Revision">Revision</option>
+                  <option value="Course">Course</option>
+                  <option value="Reading">Reading</option>
+                  <option value="Mock Interview">Mock Interview</option>
+                  <option value="Resume">Resume</option>
+                  <option value="Content">Content</option>
                 </select>
+
                 <div className="flex space-x-2">
                   <button
                     onClick={handleAddGoal}
@@ -568,33 +638,51 @@ const DevBoard = () => {
             </div>
           )}
 
-          <div className="space-y-3 overflow-y-auto max-h-64">
-            {goals.map(goal => (
-              <div key={goal.id} className={`flex items-center p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-                <button
-                  onClick={() => toggleGoal(goal.id)}
-                  className="mr-3"
-                >
-                  {goal.completed ? (
-                    <CheckCircle className="w-5 h-5 text-green-500" />
-                  ) : (
-                    <Circle className="w-5 h-5 text-gray-400" />
-                  )}
-                </button>
-                <div className="flex-1">
-                  <p className={`font-medium ${goal.completed ? 'line-through text-gray-500' : (darkMode ? 'text-white' : 'text-gray-900')}`}>
-                    {goal.title}
-                  </p>
-                  <div className="flex items-center mt-1">
-                    <div className={`w-2 h-2 rounded-full mr-2 ${getTypeColor(goal.type)}`}></div>
-                    <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                      {goal.type}
-                    </span>
-                  </div>
+          {loadingGoals ? (
+            <div className="flex justify-center py-8">
+              <div className="w-8 h-8 border-t-2 border-b-2 border-blue-500 rounded-full animate-spin"></div>
+            </div>
+          ) : (
+            <div className="space-y-3 overflow-y-auto max-h-64">
+              {goals.length === 0 ? (
+                <div className={`p-4 text-center rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                  <p className={darkMode ? 'text-gray-400' : 'text-gray-600'}>No goals yet. Add your first goal!</p>
                 </div>
-              </div>
-            ))}
-          </div>
+              ) : (
+                goals.map(goal => (
+                  <div key={goal.id} className={`flex items-center p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                    <button
+                      onClick={() => toggleGoal(goal.id)}
+                      className="mr-3"
+                    >
+                      {goal.completed ? (
+                        <CheckCircle className="w-5 h-5 text-green-500" />
+                      ) : (
+                        <Circle className="w-5 h-5 text-gray-400" />
+                      )}
+                    </button>
+                    <div className="flex-1">
+                      <p className={`font-medium ${goal.completed ? 'line-through text-gray-500' : (darkMode ? 'text-white' : 'text-gray-900')}`}>
+                        {goal.title}
+                      </p>
+                      <div className="flex items-center mt-1">
+                        <div className={`w-2 h-2 rounded-full mr-2 ${getTypeColor(goal.type)}`}></div>
+                        <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                          {goal.type}
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleDeleteGoal(goal.id)}
+                      className="p-1 text-red-500 hover:text-red-700"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
         </div>
       )
     },
@@ -668,21 +756,71 @@ const DevBoard = () => {
       expandedContent: (
         <div className="space-y-4">
           {profileData.leetcode ? (
-            <div>
-              <h3 className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                LeetCode Progress
-              </h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div className={`p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-                  <div className="text-2xl font-bold text-green-500">487</div>
-                  <div className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Problems Solved</div>
-                </div>
-                <div className={`p-4 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-                  <div className="text-2xl font-bold text-blue-500">#18,456</div>
-                  <div className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Global Rank</div>
-                </div>
-              </div>
-            </div>
+           <div className={`p-4 rounded-lg ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-md border ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+  {/* Header with Logo */}
+  <div className="flex items-center justify-between mb-3">
+    <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+      <span className="text-yellow-500">Lee</span>tCode
+    </h3>
+    <span className={`text-xs px-2 py-1 rounded ${darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'}`}>
+      Rank #18,456
+    </span>
+  </div>
+
+  {/* Core Stats: Total Solved + Streak */}
+  <div className="grid grid-cols-2 gap-3 mb-4">
+    <div className={`p-3 rounded-lg text-center ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+      <div className="text-2xl font-bold text-green-500">487</div>
+      <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Problems Solved</div>
+    </div>
+    <div className={`p-3 rounded-lg text-center ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+      <div className="text-2xl font-bold text-blue-500">42</div>
+      <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Day Streak</div>
+    </div>
+  </div>
+
+  {/* Difficulty Breakdown */}
+  <div className="grid grid-cols-3 gap-2 mb-4">
+    {[
+      { type: 'Easy', solved: 120, color: 'bg-green-500' },
+      { type: 'Medium', solved: 300, color: 'bg-yellow-500' },
+      { type: 'Hard', solved: 67, color: 'bg-red-500' }
+    ].map((item) => (
+      <div 
+        key={item.type} 
+        className={`p-2 rounded text-center ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}
+      >
+        <div className={`text-lg font-bold ${item.color.replace('bg', 'text')}`}>{item.solved}</div>
+        <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>{item.type}</div>
+      </div>
+    ))}
+  </div>
+
+  {/* Total Submissions */}
+  <div className={`p-3 rounded-lg mb-3 ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+    <div className="flex items-center justify-between">
+      <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Total Submissions</span>
+      <span className="font-bold text-purple-500">1,024</span>
+    </div>
+  </div>
+
+  {/* Contest Rating (Optional) */}
+  <div className={`p-3 rounded-lg mb-3 ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+    <div className="flex items-center justify-between">
+      <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Contest Rating</span>
+      <span className="font-bold text-blue-500">1,458</span>
+    </div>
+  </div>
+
+  {/* Quick Action */}
+  <a
+    href="https://leetcode.com/problemset/all/"
+    target="_blank"
+    className={`block text-center text-sm p-2 rounded-md ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'} transition-colors`}
+  >
+    Solve Random Problem →
+  </a>
+</div>
           ) : (
             <div className="py-8 text-center">
               <AlertCircle className="w-12 h-12 mx-auto mb-4 text-yellow-500" />

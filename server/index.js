@@ -37,6 +37,7 @@ const authenticate = async (req, res, next) => {
     res.status(401).json({ error: "Invalid token" });
   }
 };
+//LOGIN AND SIGNUP
 app.post("/signup",async(req,res)=>{
     const {email,password}=req.body;
    //checking for already existing email 
@@ -88,6 +89,8 @@ app.post("/login",async(req,res)=>{
   }
 
 });
+
+//RESOURCES
 app.get("/api/resources",authenticate,async(req,res)=>{
   try{
   const result=await db.query("Select * from resources where user_id=$1 ORDER BY created_at DESC",[req.user.id]);
@@ -125,6 +128,131 @@ app.delete("/api/resources/:id",authenticate,async(req,res)=>{
     res.status(500).json({ error: "Server error" });
   }
 }); 
+
+
+//GOALS
+app.get("/api/goals",authenticate,async(req,res)=>{
+  try{
+    const result=await db.query("Select * from goals where user_id=$1 ORDER BY created_at DESC",[req.user.id]);
+    res.json(result.rows);
+  }
+catch (err) {
+    console.error("Error fetching goals:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+app.post("/api/goals",authenticate,async(req,res)=>{
+   try {
+    const userId = req.user.id;
+    const { title, type } = req.body;
+
+    if (!title || !type) {
+      return res.status(400).json({ error: "Title and type are required" });
+    }
+
+    const result = await db.query(
+      "INSERT INTO goals (user_id, title, type) VALUES ($1, $2, $3) RETURNING *",
+      [userId, title, type]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error("Error adding goal:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+app.delete("/api/goals/:id",authenticate, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const goalId = req.params.id;
+
+    // Make sure the goal belongs to the user
+    const check = await db.query(
+      "SELECT * FROM goals WHERE id = $1 AND user_id = $2",
+      [goalId, userId]
+    );
+
+    if (check.rows.length === 0) {
+      return res.status(404).json({ error: "Goal not found" });
+    }
+
+    await db.query("DELETE FROM goals WHERE id = $1", [goalId]);
+
+    res.json({ message: "Goal deleted successfully" });
+  } catch (err) {
+    console.error("Error deleting goal:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+app.patch("/api/goals/:id",authenticate,async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const goalId = req.params.id;
+    const { completed } = req.body;
+
+    const result = await db.query(
+      "UPDATE goals SET completed = $1 WHERE id = $2 AND user_id = $3 RETURNING *",
+      [completed, goalId, userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Goal not found or unauthorized" });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("Error updating goal status:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+
+//PROFILES
+// GET /api/profiles
+app.get("/api/profiles", authenticate, async (req, res) => {
+  const userId = req.user.id;
+
+  try {
+    const result = await db.query(
+      "SELECT leetcode_username, codeforces_handle, github_username FROM connected_profiles WHERE user_id = $1",
+      [userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(200).json({ leetcode_username: "", codeforces_handle: "", github_username: "" });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("Error fetching profiles:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// POST /api/profiles
+app.post("/api/profiles", authenticate, async (req, res) => {
+  const userId = req.user.id;
+  const { leetcode_username, codeforces_handle, github_username } = req.body;
+
+  try {
+    await db.query(`
+      INSERT INTO connected_profiles (user_id, leetcode_username, codeforces_handle, github_username)
+      VALUES ($1, $2, $3, $4)
+      ON CONFLICT (user_id) DO UPDATE
+      SET leetcode_username = EXCLUDED.leetcode_username,
+          codeforces_handle = EXCLUDED.codeforces_handle,
+          github_username = EXCLUDED.github_username,
+          updated_at = CURRENT_TIMESTAMP
+    `, [userId, leetcode_username, codeforces_handle, github_username]);
+
+    res.json({ message: "Profiles saved successfully" });
+  } catch (err) {
+    console.error("Error saving profiles:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+
 app.listen(port,()=>{
     console.log(`Server is running on port ${port}`);
 })
