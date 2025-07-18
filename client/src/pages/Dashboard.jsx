@@ -19,17 +19,14 @@ const DevBoard = () => {
     title: '',
     url: ''
   });
+const [leetcodeStats, setLeetcodeStats] = useState();
+const [loadingLeetcode, setLoadingLeetcode] = useState(true);
 
   // Profile data state
-  const [profileData, setProfileData] = useState(() => {
-    const saved = localStorage.getItem('devboard-profiles');
-    return saved ? JSON.parse(saved) : {
-      leetcode: '',
-      codeforces: '',
-      github: '',
-      codechef: '',
-      hackerrank: ''
-    };
+    const [profileData, setProfileData] = useState({
+    leetcode_username: '',
+    codeforces_handle: '',
+    github_username: ''
   });
 
   // Resources state
@@ -37,13 +34,44 @@ const DevBoard = () => {
   // Goals state
   const [goals, setGoals] = useState([]);
   const [loadingGoals, setLoadingGoals] = useState(true);
+  const [loadingProfiles, setLoadingProfiles] = useState(true);
   
   // Load resources and goals when component mounts
   useEffect(() => {
     const fetchData = async () => {
       try {
         const token = localStorage.getItem('token');
+        //Fetch Profiles 
+         setLoadingProfiles(true);
+        const profilesResponse = await fetch(`${API_URL}/api/profiles`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
         
+        if (!profilesResponse.ok) {
+          throw new Error('Failed to fetch profiles');
+        }
+        
+        const profilesData = await profilesResponse.json();
+        setProfileData(profilesData);
+  //Leetcode fetchhhhhh
+        if (profilesData?.id && profilesData?.leetcode_username) {
+  const leetcodeStatsResponse = await fetch(`https://leetcode-stats-api.herokuapp.com/${profilesData.leetcode_username}`, {
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  });
+
+  if (!leetcodeStatsResponse.ok) {
+    throw new Error("Failed to fetch LeetCode stats");
+  }
+
+  const stats = await leetcodeStatsResponse.json();
+  setLeetcodeStats(stats);
+  setLoadingLeetcode(false);
+}
+
         // Fetch resources
         const resourcesResponse = await fetch(`${API_URL}/api/resources`, {
           headers: {
@@ -75,7 +103,9 @@ const DevBoard = () => {
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
-        setLoadingGoals(false);
+         setLoadingProfiles(false);
+    setLoadingGoals(false);
+    setLoadingLeetcode(false);
       }
     };
 
@@ -107,9 +137,28 @@ const DevBoard = () => {
   }, [profileData]);
 
   // Handle profile form submission
-  const handleProfileSubmit = (e) => {
+    const handleProfileSubmit = async (e) => {
     e.preventDefault();
-    setShowProfileModal(false);
+    
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/api/profiles`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(profileData)
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to save profiles');
+      }
+      
+      setShowProfileModal(false);
+    } catch (error) {
+      console.error('Error saving profiles:', error);
+    }
   };
 
   // Toggle goal completion
@@ -748,14 +797,14 @@ const DevBoard = () => {
       name: 'LeetCode',
       icon: Trophy,
       iconBg: 'bg-yellow-100 text-yellow-600',
-      needsProfile: !profileData.leetcode,
+      needsProfile: !profileData.leetcode_username,
       summary: {
-        count: profileData.leetcode ? 'Total Solved: 487' : 'Setup Required',
-        last: profileData.leetcode ? 'Rank: #18,456' : 'Add your username'
+        count: profileData.leetcode_username? 'Total Solved: 487' : 'Setup Required',
+        last: profileData.leetcode_username? 'Rank: #18,456' : 'Add your username'
       },
       expandedContent: (
         <div className="space-y-4">
-          {profileData.leetcode ? (
+          {profileData.leetcode_username ? (
            <div className={`p-4 rounded-lg ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-md border ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
   {/* Header with Logo */}
   <div className="flex items-center justify-between mb-3">
@@ -847,14 +896,14 @@ const DevBoard = () => {
       name: 'Codeforces',
       icon: Code,
       iconBg: 'bg-purple-100 text-purple-600',
-      needsProfile: !profileData.codeforces,
+      needsProfile: !profileData.codeforces_handle,
       summary: {
-        count: profileData.codeforces ? 'Rating: 1458' : 'Setup Required',
-        last: profileData.codeforces ? 'Rank: Pupil' : 'Add your username'
+        count: profileData.codeforces_handle ? 'Rating: 1458' : 'Setup Required',
+        last: profileData.codeforces_handle ? 'Rank: Pupil' : 'Add your username'
       },
       expandedContent: (
         <div className="space-y-4">
-          {profileData.codeforces ? (
+          {profileData.codeforces_handle ? (
             <div>
               <h3 className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                 Codeforces Stats
@@ -896,14 +945,14 @@ const DevBoard = () => {
       name: 'GitHub',
       icon: Github,
       iconBg: 'bg-gray-100 text-gray-700',
-      needsProfile: !profileData.github,
+      needsProfile: !profileData.github_username,
       summary: {
-        count: profileData.github ? 'Commit Streak: 5 days' : 'Setup Required',
-        last: profileData.github ? 'Top Repo: leetcode-grind' : 'Add your username'
+        count: profileData.github_username ? 'Commit Streak: 5 days' : 'Setup Required',
+        last: profileData.github_username ? 'Top Repo: leetcode-grind' : 'Add your username'
       },
       expandedContent: (
         <div className="space-y-4">
-          {profileData.github ? (
+          {profileData.github_username ? (
             <div>
               <h3 className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                 GitHub Activity
@@ -1197,8 +1246,8 @@ const DevBoard = () => {
                 </label>
                 <input
                   type="text"
-                  value={profileData.leetcode}
-                  onChange={(e) => setProfileData({...profileData, leetcode: e.target.value})}
+                  value={profileData.leetcode_username}
+                  onChange={(e) => setProfileData({...profileData, leetcode_username: e.target.value})}
                   className={`w-full p-3 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
                   placeholder="your_leetcode_username"
                 />
@@ -1210,8 +1259,8 @@ const DevBoard = () => {
                 </label>
                 <input
                   type="text"
-                  value={profileData.codeforces}
-                  onChange={(e) => setProfileData({...profileData, codeforces: e.target.value})}
+                  value={profileData.codeforces_handle}
+                  onChange={(e) => setProfileData({...profileData, codeforces_handle: e.target.value})}
                   className={`w-full p-3 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
                   placeholder="your_codeforces_handle"
                 />
@@ -1223,8 +1272,8 @@ const DevBoard = () => {
                 </label>
                 <input
                   type="text"
-                  value={profileData.github}
-                  onChange={(e) => setProfileData({...profileData, github: e.target.value})}
+                  value={profileData.github_username}
+                  onChange={(e) => setProfileData({...profileData, github_username: e.target.value})}
                   className={`w-full p-3 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
                   placeholder="your_github_username"
                 />

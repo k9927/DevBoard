@@ -1,7 +1,12 @@
 import React from 'react';
-import { Code, Moon, Sun } from 'lucide-react';
+import { Code, Moon, Sun, LogOut } from 'lucide-react';
 
 const Navbar = ({ darkMode, toggleDarkMode, setShowAuthModal, handleAuthModeChange }) => {
+  const isLoggedIn = typeof window !== 'undefined' && localStorage.getItem('token');
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    window.location.reload();
+  };
   return (
     <nav className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border-b backdrop-blur-sm sticky top-0 z-40`}>
       <div className="px-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
@@ -21,20 +26,30 @@ const Navbar = ({ darkMode, toggleDarkMode, setShowAuthModal, handleAuthModeChan
             >
               {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </button>
-            
-            <button
-              onClick={() => {setShowAuthModal(true); handleAuthModeChange('login');}}
-              className={`px-4 py-2 rounded-lg ${darkMode ? 'text-gray-300 hover:text-white hover:bg-gray-700' : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'} transition-all duration-200`}
-            >
-              Login
-            </button>
-            
-            <button
-              onClick={() => {setShowAuthModal(true); handleAuthModeChange('signup');}}
-              className="px-6 py-2 font-semibold text-white transition-all duration-200 transform rounded-lg shadow-lg bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 hover:scale-105"
-            >
-              Sign Up
-            </button>
+            {isLoggedIn ? (
+              <button
+                onClick={handleLogout}
+                className={`flex items-center px-4 py-2 rounded-lg ${darkMode ? 'text-gray-300 hover:text-white hover:bg-gray-700' : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'} transition-all duration-200`}
+              >
+                <LogOut className="w-5 h-5 mr-2" />
+                Logout
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={() => {setShowAuthModal(true); handleAuthModeChange('login');}}
+                  className={`px-4 py-2 rounded-lg ${darkMode ? 'text-gray-300 hover:text-white hover:bg-gray-700' : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'} transition-all duration-200`}
+                >
+                  Login
+                </button>
+                <button
+                  onClick={() => {setShowAuthModal(true); handleAuthModeChange('signup');}}
+                  className="px-6 py-2 font-semibold text-white transition-all duration-200 transform rounded-lg shadow-lg bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 hover:scale-105"
+                >
+                  Sign Up
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
