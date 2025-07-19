@@ -3,10 +3,6 @@ import { Code, Moon, Sun, LogOut } from 'lucide-react';
 
 const Navbar = ({ darkMode, toggleDarkMode, setShowAuthModal, handleAuthModeChange }) => {
   const isLoggedIn = typeof window !== 'undefined' && localStorage.getItem('token');
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    window.location.reload();
-  };
   return (
     <nav className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border-b backdrop-blur-sm sticky top-0 z-40`}>
       <div className="px-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
@@ -17,7 +13,6 @@ const Navbar = ({ darkMode, toggleDarkMode, setShowAuthModal, handleAuthModeChan
             </div>
             <span className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>DevBoard</span>
           </div>
-          
           <div className="flex items-center space-x-4">
             <button
               onClick={toggleDarkMode}
@@ -26,15 +21,7 @@ const Navbar = ({ darkMode, toggleDarkMode, setShowAuthModal, handleAuthModeChan
             >
               {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </button>
-            {isLoggedIn ? (
-              <button
-                onClick={handleLogout}
-                className={`flex items-center px-4 py-2 rounded-lg ${darkMode ? 'text-gray-300 hover:text-white hover:bg-gray-700' : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'} transition-all duration-200`}
-              >
-                <LogOut className="w-5 h-5 mr-2" />
-                Logout
-              </button>
-            ) : (
+            {!isLoggedIn && (
               <>
                 <button
                   onClick={() => {setShowAuthModal(true); handleAuthModeChange('login');}}
