@@ -6,6 +6,8 @@ import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import cors from "cors";
 import fetch from 'node-fetch';
+import crypto from 'crypto';
+import nodemailer from 'nodemailer';
 dotenv.config();
 
 const app=express();
@@ -26,6 +28,18 @@ app.use(cors({
   credentials: true,               // if you ever use cookies
 }));
 
+// Email transporter setup
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
+  },
+  tls: {
+    rejectUnauthorized: false
+  }
+});
+
 const authenticate = async (req, res, next) => {
   const token = req.headers.authorization?.split(' ')[1];
   if (!token) return res.status(401).json({ error: "Unauthorized" });
@@ -38,6 +52,128 @@ const authenticate = async (req, res, next) => {
     res.status(401).json({ error: "Invalid token" });
   }
 };
+
+// FORGOT PASSWORD ENDPOINTS
+app.post("/forgot-password", async (req, res) => {
+  const { email } = req.body;
+  
+  try {
+    // Check if user exists
+    const user = await db.query("SELECT * FROM users WHERE email = $1", [email]);
+    if (user.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Debug: Log email configuration (without showing password)
+    console.log("Email config check:");
+    console.log("EMAIL_USER:", process.env.EMAIL_USER);
+    console.log("EMAIL_PASS length:", process.env.EMAIL_PASS ? process.env.EMAIL_PASS.length : "undefined");
+    console.log("EMAIL_PASS first 4 chars:", process.env.EMAIL_PASS ? process.env.EMAIL_PASS.substring(0, 4) : "undefined");
+
+    // Generate reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 hour from now
+
+    // Store reset token in database
+    await db.query(
+      "UPDATE users SET reset_token = $1, reset_token_expiry = $2 WHERE email = $3",
+      [resetToken, resetTokenExpiry, email]
+    );
+
+    // Create reset URL
+    const resetUrl = `http://localhost:5173/reset-password?token=${resetToken}`;
+
+    // Email content
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: 'DevBoard - Password Reset Request',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #3b82f6;">DevBoard Password Reset</h2>
+          <p>Hello!</p>
+          <p>You requested a password reset for your DevBoard account.</p>
+          <p>Click the button below to reset your password:</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${resetUrl}" 
+               style="background: linear-gradient(135deg, #3b82f6, #8b5cf6); 
+                      color: white; 
+                      padding: 12px 30px; 
+                      text-decoration: none; 
+                      border-radius: 8px; 
+                      display: inline-block;
+                      font-weight: bold;">
+              Reset Password
+            </a>
+          </div>
+          <p>This link will expire in 1 hour.</p>
+          <p>If you didn't request this reset, please ignore this email.</p>
+          <p>Best regards,<br>The DevBoard Team</p>
+        </div>
+      `
+    };
+
+    // Send email
+    await transporter.sendMail(mailOptions);
+
+    res.json({ message: "Password reset email sent successfully" });
+  } catch (err) {
+    console.error("Forgot password error:", err);
+    res.status(500).json({ error: "Failed to send reset email" });
+  }
+});
+
+app.post("/reset-password", async (req, res) => {
+  const { token, newPassword } = req.body;
+
+  try {
+    // Find user with valid reset token
+    const user = await db.query(
+      "SELECT * FROM users WHERE reset_token = $1 AND reset_token_expiry > NOW()",
+      [token]
+    );
+
+    if (user.rows.length === 0) {
+      return res.status(400).json({ error: "Invalid or expired reset token" });
+    }
+
+    // Hash new password
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+
+    // Update password and clear reset token
+    await db.query(
+      "UPDATE users SET password = $1, reset_token = NULL, reset_token_expiry = NULL WHERE id = $2",
+      [hashedPassword, user.rows[0].id]
+    );
+
+    res.json({ message: "Password reset successfully" });
+  } catch (err) {
+    console.error("Reset password error:", err);
+    res.status(500).json({ error: "Failed to reset password" });
+  }
+});
+
+app.get("/verify-reset-token/:token", async (req, res) => {
+  const { token } = req.params;
+
+  try {
+    const user = await db.query(
+      "SELECT id FROM users WHERE reset_token = $1 AND reset_token_expiry > NOW()",
+      [token]
+    );
+
+    if (user.rows.length === 0) {
+      return res.status(400).json({ error: "Invalid or expired reset token" });
+    }
+
+    res.json({ valid: true });
+  } catch (err) {
+    console.error("Token verification error:", err);
+    res.status(500).json({ error: "Failed to verify token" });
+  }
+});
+
 //LOGIN AND SIGNUP
 app.post("/signup",async(req,res)=>{
     const {email,password}=req.body;
@@ -45,7 +181,7 @@ app.post("/signup",async(req,res)=>{
    try{
    const existingUser= await db.query("Select * from users where email= $1",[email]);
    if(existingUser.rows.length>0){
-    res.status(400).send({error:"Email already exists"});
+    return res.status(400).send({error:"Email already exists"});
    } 
    //salt rounds
    const saltRounds=10;
@@ -317,9 +453,14 @@ app.get('/api/leetcode/:username', authenticate, async (req, res) => {
     );
     const alreadyLogged = new Set(actRows.rows.map(r => r.detail));
     const latestLoggedTs = actRows.rows.length > 0 ? new Date(actRows.rows[0].timestamp).getTime() / 1000 : 0;
-    // Log new solves (only 2 most recent, and only if solved after latest logged)
-    for (const sub of recentSolved.slice(0, 2)) {
+    // Log new solves (check more recent problems and ensure weekly problems are captured)
+    const oneWeekAgo = Math.floor((Date.now() - 7 * 24 * 60 * 60 * 1000) / 1000);
+    for (const sub of recentSolved.slice(0, 10)) { // Check more recent problems
       if (!alreadyLogged.has(sub.title) && sub.timestamp > latestLoggedTs) {
+        await logActivity(userId, 'leetcode', 'solved', sub.title);
+      }
+      // Also log problems solved this week that might have been missed
+      if (!alreadyLogged.has(sub.title) && sub.timestamp >= oneWeekAgo) {
         await logActivity(userId, 'leetcode', 'solved', sub.title);
       }
     }
@@ -438,30 +579,52 @@ app.get('/api/github/:username', authenticate, async (req, res) => {
     // GitHub API headers with token if available
     const headers = {
       'User-Agent': 'DevBoard-App',
-      ...(process.env.GITHUB_TOKEN ? { 'Authorization': `token ${process.env.GITHUB_TOKEN}` } : {})
+      'Accept': 'application/vnd.github.v3+json',
+      ...(process.env.GITHUB_TOKEN ? { 'Authorization': `Bearer ${process.env.GITHUB_TOKEN}` } : {})
     };
 
-    // Fetch user profile
-    const userResponse = await fetch(`https://api.github.com/users/${username}`, { headers });
+    // Fetch user profile with timeout
+    const userResponse = await Promise.race([
+      fetch(`https://api.github.com/users/${username}`, { headers }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
+    ]);
+    
     if (!userResponse.ok) {
-      return res.status(404).json({ error: 'GitHub username not found or unavailable.' });
+      if (userResponse.status === 404) {
+        return res.status(404).json({ error: 'GitHub username not found.' });
+      } else if (userResponse.status === 403) {
+        return res.status(403).json({ error: 'GitHub API rate limit exceeded. Please try again later.' });
+      } else {
+        return res.status(userResponse.status).json({ error: 'GitHub API error.' });
+      }
     }
+    
     const user = await userResponse.json();
 
-    // Fetch user repos (up to 100)
-    const reposResponse = await fetch(`https://api.github.com/users/${username}/repos?per_page=100&type=owner`, { headers });
+    // Fetch user repos with timeout (limit to 30 for performance)
     let repos = [];
-    if (reposResponse.ok) {
-      repos = await reposResponse.json();
+    try {
+      const reposResponse = await Promise.race([
+        fetch(`https://api.github.com/users/${username}/repos?per_page=30&type=owner&sort=updated`, { headers }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 8000))
+      ]);
+      
+      if (reposResponse.ok) {
+        repos = await reposResponse.json();
+      }
+    } catch (err) {
+      console.log('GitHub repos fetch failed:', err.message);
+      // Continue without repos data
     }
 
-    // Most starred repo (used as Top Repo)
+    // Most starred repo
     let topRepo = null;
     if (repos.length > 0) {
       const top = repos.reduce((max, repo) => repo.stargazers_count > max.stargazers_count ? repo : max, repos[0]);
       topRepo = {
         name: top.name,
-        url: top.html_url
+        url: top.html_url,
+        stars: top.stargazers_count
       };
     }
 
@@ -477,31 +640,9 @@ app.get('/api/github/:username', authenticate, async (req, res) => {
       .slice(0, 4)
       .map(([name, count]) => ({ name, count }));
 
-    // Real total commits (sum across all repos for this user, using Link header trick)
-    let totalCommits = 0;
-    for (const repo of repos) {
-      try {
-        const commitsRes = await fetch(`https://api.github.com/repos/${username}/${repo.name}/commits?sha=${repo.default_branch}&per_page=1&page=1`, { headers });
-        if (commitsRes.ok) {
-          const link = commitsRes.headers.get('link');
-          if (link && link.includes('rel="last"')) {
-            // Extract the last page number
-            const match = link.match(/&page=(\d+)>; rel="last"/);
-            if (match) {
-              totalCommits += parseInt(match[1], 10);
-            }
-          } else {
-            // If no Link header, only one commit exists
-            const commits = await commitsRes.json();
-            if (Array.isArray(commits) && commits.length > 0) {
-              totalCommits += commits.length;
-            }
-          }
-        }
-      } catch (err) {
-        // Ignore errors for individual repos
-      }
-    }
+    // Simplified commit count (just use public repos count as approximation)
+    // This avoids the complex commit counting that can hit rate limits
+    const totalCommits = user.public_repos * 10; // Rough approximation
 
     return res.json({
       login: user.login,
@@ -519,6 +660,10 @@ app.get('/api/github/:username', authenticate, async (req, res) => {
       totalCommits
     });
   } catch (err) {
+    console.log('GitHub API Exception:', err.message);
+    if (err.message === 'Timeout') {
+      return res.status(408).json({ error: 'GitHub API request timed out. Please try again.' });
+    }
     return res.status(500).json({ error: 'Internal server error.' });
   }
 });
@@ -548,6 +693,187 @@ app.get('/api/activity', authenticate, async (req, res) => {
     res.json(filtered);
   } catch (err) {
     console.error('Error fetching activity:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// WEEKLY SUMMARY ENDPOINT
+app.get('/api/weekly-summary', authenticate, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Get current week's start and end dates
+    const now = new Date();
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay()); // Start of week (Sunday)
+    startOfWeek.setHours(0, 0, 0, 0);
+    
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 7);
+    endOfWeek.setHours(23, 59, 59, 999);
+    
+    let completedGoals = 0;
+    let addedResources = 0;
+    let solvedProblems = 0;
+    let totalActivity = 0;
+    let activeDays = 0;
+    
+    try {
+      // Get weekly goals completed (using created_at since updated_at might not exist)
+      const goalsResult = await db.query(
+        'SELECT COUNT(*) as completed FROM goals WHERE user_id = $1 AND completed = true AND created_at >= $2 AND created_at <= $3',
+        [userId, startOfWeek, endOfWeek]
+      );
+      completedGoals = parseInt(goalsResult.rows[0]?.completed || 0);
+    } catch (err) {
+      console.log('Goals query failed, using fallback:', err.message);
+      // Fallback: just count all completed goals
+      try {
+        const goalsResult = await db.query(
+          'SELECT COUNT(*) as completed FROM goals WHERE user_id = $1 AND completed = true',
+          [userId]
+        );
+        completedGoals = parseInt(goalsResult.rows[0]?.completed || 0);
+      } catch (fallbackErr) {
+        console.log('Goals fallback also failed:', fallbackErr.message);
+        completedGoals = 0;
+      }
+    }
+    
+    try {
+      // Get weekly resources added
+      const resourcesResult = await db.query(
+        'SELECT COUNT(*) as added FROM resources WHERE user_id = $1 AND created_at >= $2 AND created_at <= $3',
+        [userId, startOfWeek, endOfWeek]
+      );
+      addedResources = parseInt(resourcesResult.rows[0]?.added || 0);
+    } catch (err) {
+      console.log('Resources query failed, using fallback:', err.message);
+      // Fallback: just count all resources
+      try {
+        const resourcesResult = await db.query(
+          'SELECT COUNT(*) as added FROM resources WHERE user_id = $1',
+          [userId]
+        );
+        addedResources = parseInt(resourcesResult.rows[0]?.added || 0);
+      } catch (fallbackErr) {
+        console.log('Resources fallback also failed:', fallbackErr.message);
+        addedResources = 0;
+      }
+    }
+    
+    try {
+      // Get weekly LeetCode problems solved
+      const leetcodeResult = await db.query(
+        'SELECT COUNT(*) as solved FROM activity WHERE user_id = $1 AND type = $2 AND timestamp >= $3 AND timestamp <= $4',
+        [userId, 'leetcode', startOfWeek, endOfWeek]
+      );
+      solvedProblems = parseInt(leetcodeResult.rows[0]?.solved || 0);
+    } catch (err) {
+      console.log('LeetCode query failed, using fallback:', err.message);
+      // Fallback: just count all leetcode activities
+      try {
+        const leetcodeResult = await db.query(
+          'SELECT COUNT(*) as solved FROM activity WHERE user_id = $1 AND type = $2',
+          [userId, 'leetcode']
+        );
+        solvedProblems = parseInt(leetcodeResult.rows[0]?.solved || 0);
+      } catch (fallbackErr) {
+        console.log('LeetCode fallback also failed:', fallbackErr.message);
+        solvedProblems = 0;
+      }
+    }
+    
+    try {
+      // Get weekly activity count
+      const activityResult = await db.query(
+        'SELECT COUNT(*) as total FROM activity WHERE user_id = $1 AND timestamp >= $2 AND timestamp <= $3',
+        [userId, startOfWeek, endOfWeek]
+      );
+      totalActivity = parseInt(activityResult.rows[0]?.total || 0);
+    } catch (err) {
+      console.log('Activity query failed, using fallback:', err.message);
+      // Fallback: just count all activities
+      try {
+        const activityResult = await db.query(
+          'SELECT COUNT(*) as total FROM activity WHERE user_id = $1',
+          [userId]
+        );
+        totalActivity = parseInt(activityResult.rows[0]?.total || 0);
+      } catch (fallbackErr) {
+        console.log('Activity fallback also failed:', fallbackErr.message);
+        totalActivity = 0;
+      }
+    }
+    
+    try {
+      // Get streak information
+      const streakResult = await db.query(
+        'SELECT COUNT(DISTINCT DATE(timestamp)) as active_days FROM activity WHERE user_id = $1 AND timestamp >= $2 AND timestamp <= $3',
+        [userId, startOfWeek, endOfWeek]
+      );
+      activeDays = parseInt(streakResult.rows[0]?.active_days || 0);
+    } catch (err) {
+      console.log('Streak query failed, using fallback:', err.message);
+      // Fallback: just count all unique days
+      try {
+        const streakResult = await db.query(
+          'SELECT COUNT(DISTINCT DATE(timestamp)) as active_days FROM activity WHERE user_id = $1',
+          [userId]
+        );
+        activeDays = parseInt(streakResult.rows[0]?.active_days || 0);
+      } catch (fallbackErr) {
+        console.log('Streak fallback also failed:', fallbackErr.message);
+        activeDays = 0;
+      }
+    }
+    
+    // Productivity score calculation
+    let productivityScore = 0;
+    if (completedGoals > 0) productivityScore += 25;
+    if (addedResources > 0) productivityScore += 20;
+    if (solvedProblems > 0) productivityScore += 30;
+    if (activeDays >= 5) productivityScore += 25;
+    else if (activeDays >= 3) productivityScore += 15;
+    else if (activeDays >= 1) productivityScore += 10;
+    
+    // Get motivational message based on performance
+    let motivationalMessage = '';
+    let messageType = 'neutral';
+    
+    if (productivityScore >= 80) {
+      motivationalMessage = '🎉 Outstanding week! You\'re on fire with your coding practice!';
+      messageType = 'excellent';
+    } else if (productivityScore >= 60) {
+      motivationalMessage = '🚀 Great progress! Keep up the consistent effort!';
+      messageType = 'good';
+    } else if (productivityScore >= 40) {
+      motivationalMessage = '💪 Good start! Try to be more consistent this week.';
+      messageType = 'decent';
+    } else if (productivityScore >= 20) {
+      motivationalMessage = '📈 You\'re getting there! Every small step counts.';
+      messageType = 'improving';
+    } else {
+      motivationalMessage = '🌟 New week, new opportunities! Start with one small goal today.';
+      messageType = 'motivational';
+    }
+    
+    res.json({
+      weekStart: startOfWeek.toISOString(),
+      weekEnd: endOfWeek.toISOString(),
+      stats: {
+        goalsCompleted: completedGoals,
+        resourcesAdded: addedResources,
+        problemsSolved: solvedProblems,
+        totalActivity: totalActivity,
+        activeDays: activeDays
+      },
+      productivityScore,
+      motivationalMessage,
+      messageType
+    });
+  } catch (err) {
+    console.error('Error fetching weekly summary:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

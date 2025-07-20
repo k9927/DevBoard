@@ -609,8 +609,8 @@ export default function DevBoardLanding() {
             
             <FeatureCard
               icon={FileText}
-              title="Code Snippets"
-              description="Store and organize your frequently used code snippets, algorithms, and templates for quick access."
+              title="Weekly Summary"
+              description="Track your weekly progress with detailed analytics, productivity scores, and motivational insights to keep you motivated."
               gradient="from-red-400 to-pink-500"
             />
             

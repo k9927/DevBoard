@@ -750,7 +750,7 @@ const [loadingLeetcode, setLoadingLeetcode] = useState(true);
             Quick Actions
           </h3>
           
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <a 
               href="https://leetcode.com/problemset/all/" 
               target="_blank"
@@ -781,13 +781,7 @@ const [loadingLeetcode, setLoadingLeetcode] = useState(true);
               <span className="text-sm font-medium">GitHub</span>
             </a>
             
-            <button 
-              onClick={() => setShowAddGoal(true)}
-              className={`p-3 rounded-lg flex flex-col items-center justify-center ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-50 hover:bg-gray-100'} transition-colors`}
-            >
-              <Target className="w-6 h-6 mb-2 text-blue-500" />
-              <span className="text-sm font-medium">Add Goal</span>
-            </button>
+
           </div>
         </div>
       )

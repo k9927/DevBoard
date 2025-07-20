@@ -48,141 +48,205 @@ const Dashboards = () => {
   const [githubStats, setGithubStats] = useState();
   const [loadingGithub, setLoadingGithub] = useState(true);
 
-  // Refactored data fetching logic
-  const fetchAllData = async () => {
-    setLoading(true); // Start loading
-    let anyApiSucceeded = false;
+  // Weekly summary state
+  const [weeklyData, setWeeklyData] = useState(null);
+
+  // Original data fetching logic
+  const fetchBasicData = async () => {
+    const token = localStorage.getItem('token');
+    const startTime = Date.now();
+    
     try {
-      const token = localStorage.getItem('token');
-      // Fetch Profiles
-      setLoadingProfiles(true);
-      const profilesResponse = await fetch(`${API_URL}/api/profiles`, { headers: { 'Authorization': `Bearer ${token}` } });
+      // Fetch profiles first
+      const profilesResponse = await fetch(`${API_URL}/api/profiles`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      let currentProfileData = {
+        leetcode: '',
+        codeforces: '',
+        github: ''
+      };
+      
       if (profilesResponse.ok) {
-        anyApiSucceeded = true;
         const profilesData = await profilesResponse.json();
-        setProfileData({
+        currentProfileData = {
           leetcode: profilesData.leetcode_username || '',
           codeforces: profilesData.codeforces_handle || '',
           github: profilesData.github_username || ''
-        });
-        // Fetch LeetCode stats if username exists
-        if (profilesData.leetcode_username) {
-          setLoadingLeetcode(true);
-          try {
-            const leetcodeStatsResponse = await fetch(`${API_URL}/api/leetcode/${profilesData.leetcode_username}`, {
-              headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (!leetcodeStatsResponse.ok) {
-              setLeetcodeStats({ error: 'LeetCode username not found or unavailable.', configured: false });
-            } else {
-              const stats = await leetcodeStatsResponse.json();
-              setLeetcodeStats({
-                configured: true,
-                username: stats.username,
-                ranking: stats.ranking,
-                totalSolved: stats.totalSolved,
-                easySolved: stats.easySolved,
-                mediumSolved: stats.mediumSolved,
-                hardSolved: stats.hardSolved,
-                reputation: stats.reputation,
-                maxStreak: stats.maxStreak,
-                currentStreak: stats.currentStreak
-              });
-            }
-          } catch (err) {
-            setLeetcodeStats({ error: 'Failed to fetch LeetCode stats', configured: false });
-          }
-          setLoadingLeetcode(false);
-        } else {
-          setLeetcodeStats(undefined);
-        }
-        // Fetch Codeforces stats if handle exists
-        if (profilesData.codeforces_handle) {
-          setLoadingCodeforces(true);
-          try {
-            const codeforcesStatsResponse = await fetch(`${API_URL}/api/codeforces/${profilesData.codeforces_handle}`, {
-              headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (!codeforcesStatsResponse.ok) {
-              setCodeforcesStats({ error: 'Codeforces handle not found or unavailable.', configured: false });
-            } else {
-              const stats = await codeforcesStatsResponse.json();
-              setCodeforcesStats({ configured: true, ...stats });
-            }
-          } catch (err) {
-            setCodeforcesStats({ error: 'Failed to fetch Codeforces stats', configured: false });
-          }
-          setLoadingCodeforces(false);
-        } else {
-          setCodeforcesStats(undefined);
-        }
-        // Fetch GitHub stats if username exists
-        if (profilesData.github_username) {
-          setLoadingGithub(true);
-          try {
-            const githubStatsResponse = await fetch(`${API_URL}/api/github/${profilesData.github_username}`, {
-              headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (!githubStatsResponse.ok) {
-              setGithubStats({ error: 'GitHub username not found or unavailable.', configured: false });
-            } else {
-              const stats = await githubStatsResponse.json();
-              setGithubStats({
-                configured: true,
-                username: stats.login,
-                avatarUrl: stats.avatar_url,
-                publicRepos: stats.public_repos,
-                followers: stats.followers,
-                following: stats.following,
-                createdAt: stats.created_at,
-                name: stats.name,
-                bio: stats.bio,
-                htmlUrl: stats.html_url,
-                topRepo: stats.topRepo,
-                topLanguages: stats.topLanguages,
-                totalCommits: stats.totalCommits
-              });
-              anyApiSucceeded = true;
-            }
-          } catch (err) {
-            setGithubStats({ error: 'Failed to fetch GitHub stats', configured: false });
-          }
-          setLoadingGithub(false);
-        } else {
-          setGithubStats(undefined);
-        }
+        };
+        setProfileData(currentProfileData);
+        setLoadingProfiles(false);
       }
-      setLoadingProfiles(false);
+
       // Fetch resources
-      const resourcesResponse = await fetch(`${API_URL}/api/resources`, { headers: { 'Authorization': `Bearer ${token}` } });
+      const resourcesResponse = await fetch(`${API_URL}/api/resources`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
       if (resourcesResponse.ok) {
         const resourcesData = await resourcesResponse.json();
         setResources(resourcesData);
       }
+
       // Fetch goals
-      setLoadingGoals(true);
-      const goalsResponse = await fetch(`${API_URL}/api/goals`, { headers: { 'Authorization': `Bearer ${token}` } });
+      const goalsResponse = await fetch(`${API_URL}/api/goals`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
       if (goalsResponse.ok) {
         const goalsData = await goalsResponse.json();
         setGoals(goalsData);
-        anyApiSucceeded = true;
+        setLoadingGoals(false);
       }
-      setLoadingGoals(false);
+
+      // Fetch weekly summary
+      try {
+        const response = await fetch(`${API_URL}/api/weekly-summary`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.ok) {
+          const weeklySummaryData = await response.json();
+          console.log('Weekly summary data:', weeklySummaryData);
+          setWeeklyData(weeklySummaryData);
+        } else {
+          console.error('Weekly summary response not ok:', response.status);
+        }
+      } catch (error) {
+        console.error('Weekly summary fetch error:', error);
+      }
+
+      // Start fetching platform stats immediately (don't wait for loading screen)
+      fetchPlatformStats(currentProfileData);
+      
+      // Ensure minimum loading time of 2 seconds
+      const elapsedTime = Date.now() - startTime;
+      const minLoadingTime = 2000;
+      
+      if (elapsedTime < minLoadingTime) {
+        await new Promise(resolve => setTimeout(resolve, minLoadingTime - elapsedTime));
+      }
+
+      setLoading(false);
+      
     } catch (err) {
+      console.error('Error fetching basic data:', err);
+      
+      // Even on error, ensure minimum loading time
+      const elapsedTime = Date.now() - startTime;
+      const minLoadingTime = 2000;
+      
+      if (elapsedTime < minLoadingTime) {
+        await new Promise(resolve => setTimeout(resolve, minLoadingTime - elapsedTime));
+      }
+      
+      setLoading(false);
       setLoadingProfiles(false);
       setLoadingGoals(false);
-    } finally {
-      if (anyApiSucceeded) setLoading(false); // Only hide loader if at least one main API succeeded
     }
   };
 
+  const fetchPlatformStats = async (profileData) => {
+    const token = localStorage.getItem('token');
+    
+    // Fetch all platform stats in parallel
+    const promises = [];
+    
+    if (profileData.leetcode) {
+      promises.push(
+        fetch(`${API_URL}/api/leetcode/${profileData.leetcode}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+        .then(response => response.ok ? response.json() : null)
+        .then(stats => {
+          if (stats) {
+            setLeetcodeStats({
+              configured: true,
+              username: stats.username,
+              ranking: stats.ranking,
+              totalSolved: stats.totalSolved,
+              easySolved: stats.easySolved,
+              mediumSolved: stats.mediumSolved,
+              hardSolved: stats.hardSolved,
+              reputation: stats.reputation,
+              maxStreak: stats.maxStreak,
+              currentStreak: stats.currentStreak
+            });
+          } else {
+            setLeetcodeStats({ error: 'LeetCode username not found or unavailable.', configured: false });
+          }
+        })
+        .catch(() => setLeetcodeStats({ error: 'Failed to fetch LeetCode stats', configured: false }))
+        .finally(() => setLoadingLeetcode(false))
+      );
+    }
+
+    if (profileData.codeforces) {
+      promises.push(
+        fetch(`${API_URL}/api/codeforces/${profileData.codeforces}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+        .then(response => response.ok ? response.json() : null)
+        .then(stats => {
+          if (stats) {
+            setCodeforcesStats({ configured: true, ...stats });
+          } else {
+            setCodeforcesStats({ error: 'Codeforces handle not found or unavailable.', configured: false });
+          }
+        })
+        .catch(() => setCodeforcesStats({ error: 'Failed to fetch Codeforces stats', configured: false }))
+        .finally(() => setLoadingCodeforces(false))
+      );
+    }
+
+    if (profileData.github) {
+      promises.push(
+        fetch(`${API_URL}/api/github/${profileData.github}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+        .then(response => response.ok ? response.json() : null)
+        .then(stats => {
+          if (stats) {
+            setGithubStats({
+              configured: true,
+              username: stats.login,
+              avatarUrl: stats.avatar_url,
+              publicRepos: stats.public_repos,
+              followers: stats.followers,
+              following: stats.following,
+              createdAt: stats.created_at,
+              name: stats.name,
+              bio: stats.bio,
+              htmlUrl: stats.html_url,
+              topRepo: stats.topRepo,
+              topLanguages: stats.topLanguages,
+              totalCommits: stats.totalCommits
+            });
+          } else {
+            setGithubStats({ error: 'GitHub username not found or unavailable.', configured: false });
+          }
+        })
+        .catch(() => setGithubStats({ error: 'Failed to fetch GitHub stats', configured: false }))
+        .finally(() => setLoadingGithub(false))
+      );
+    }
+
+    // Set loading states for platforms that will be fetched
+    if (profileData.leetcode) setLoadingLeetcode(true);
+    if (profileData.codeforces) setLoadingCodeforces(true);
+    if (profileData.github) setLoadingGithub(true);
+
+    // Wait for all platform stats to complete
+    await Promise.allSettled(promises);
+  };
+
   useEffect(() => {
-    fetchAllData();
+    fetchBasicData();
   }, []);
 
   // Callback for ProfileModal to trigger data refresh
   const handleProfileUpdated = () => {
-    fetchAllData();
+    fetchBasicData();
   };
 
   // Profile modal submit handler
@@ -190,7 +254,7 @@ const Dashboards = () => {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
-      await fetch(`${API_URL}/api/profiles`, {
+      const response = await fetch(`${API_URL}/api/profiles`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({
@@ -199,7 +263,14 @@ const Dashboards = () => {
           github_username: profileData.github
         })
       });
-      setShowProfileModal(false);
+      
+      if (response.ok) {
+        setShowProfileModal(false);
+        // Trigger data refresh after successful profile update
+        handleProfileUpdated();
+      } else {
+        console.error('Failed to save profiles:', response.status);
+      }
     } catch (error) {
       console.error('Error saving profiles:', error);
     }
@@ -345,7 +416,7 @@ const Dashboards = () => {
       icon: Zap,
       iconBg: 'bg-green-100 text-green-600',
       summary: { count: 'Jump to tasks', last: 'Save time with quick access' },
-      component: <QuickActionsSection darkMode={darkMode} setShowProfileModal={setShowProfileModal} setShowAddGoal={setShowAddGoal} />
+      component: <QuickActionsSection darkMode={darkMode} setShowProfileModal={setShowProfileModal} />
     },
     {
       id: 'leetcode',
@@ -393,23 +464,51 @@ const Dashboards = () => {
       name: 'Weekly Summary',
       icon: BarChart3,
       iconBg: 'bg-indigo-100 text-indigo-600',
-      summary: { count: '9 problems solved', last: 'Great progress this week!' },
-      component: <SummarySection darkMode={darkMode} />
+      summary: { 
+        count: weeklyData ? `${weeklyData.stats.problemsSolved} problems solved` : 'Weekly Progress', 
+        last: weeklyData ? weeklyData.motivationalMessage : 'Track your productivity' 
+      },
+              component: <SummarySection darkMode={darkMode} weeklyData={weeklyData} />
     }
   ];
 
   if (loading) {
     return (
-      <div className={`flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-100 to-gray-300 dark:from-gray-900 dark:to-gray-800`}>
-        <div className={`flex flex-col items-center justify-center p-8 rounded-2xl shadow-lg bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700`}>
-          <div className="mb-4">
-            <svg className="w-10 h-10 text-blue-500 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
-            </svg>
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+        {/* Animated background elements */}
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute bg-purple-500 rounded-full -top-40 -right-40 w-80 h-80 mix-blend-multiply filter blur-xl opacity-20 animate-blob"></div>
+          <div className="absolute bg-blue-500 rounded-full -bottom-40 -left-40 w-80 h-80 mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-2000"></div>
+          <div className="absolute bg-pink-500 rounded-full top-40 left-40 w-80 h-80 mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000"></div>
+        </div>
+        
+        <div className="relative z-10 flex flex-col items-center justify-center p-12 border shadow-2xl rounded-3xl bg-white/10 backdrop-blur-lg border-white/20">
+          {/* Logo and Brand */}
+          <div className="flex items-center mb-8 space-x-3">
+            <div className="flex items-center justify-center w-16 h-16 shadow-2xl rounded-2xl bg-gradient-to-r from-blue-500 to-purple-600">
+              <Code className="w-8 h-8 text-white" />
+            </div>
+            <div className="text-left">
+              <h1 className="text-2xl font-bold text-white">DevBoard</h1>
+              <p className="text-sm text-blue-200">Developer Productivity Hub</p>
+            </div>
           </div>
-          <div className="text-lg font-semibold text-gray-700 dark:text-gray-200">Loading your dashboard...</div>
-          <div className="mt-2 text-sm text-gray-400">Fetching your coding stats and resources</div>
+          
+          {/* Professional Loading Spinner */}
+          <div className="relative mb-6">
+            <div className="w-16 h-16 border-4 rounded-full border-blue-200/30 border-t-blue-500 animate-spin"></div>
+            <div className="absolute inset-0 w-16 h-16 border-4 border-transparent rounded-full border-t-purple-500 animate-spin animation-delay-1000"></div>
+          </div>
+          
+          {/* Loading Text */}
+          <div className="text-center">
+            <h2 className="mb-2 text-xl font-semibold text-white">Loading your dashboard</h2>
+            <div className="flex justify-center space-x-1">
+              <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce"></div>
+              <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce animation-delay-200"></div>
+              <div className="w-2 h-2 bg-pink-400 rounded-full animate-bounce animation-delay-400"></div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -422,7 +521,7 @@ const Dashboards = () => {
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-3">
               <div className="flex items-center justify-center w-10 h-10 shadow-lg rounded-xl bg-gradient-to-r from-blue-500 to-purple-600">
-                <span role="img" aria-label="zap">⚡</span>
+                <Code className="w-5 h-5 text-white" />
               </div>
               <div>
                 <h1 className="text-xl font-bold">DevBoard</h1>
@@ -432,6 +531,20 @@ const Dashboards = () => {
             <div className="flex items-center space-x-4">
               <button onClick={() => setDarkMode(!darkMode)} className={`p-2 rounded-lg ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}>{darkMode ? '☀️' : '🌙'}</button>
               <button onClick={() => setShowProfileModal(true)} className={`p-2 rounded-xl relative ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'}`}>{!hasAnyProfile() && (<span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>)}<span role="img" aria-label="user">👤</span></button>
+              <div className="relative group">
+                <button 
+                  onClick={() => {
+                    localStorage.removeItem('token');
+                    window.location.href = '/';
+                  }} 
+                  className={`p-2 rounded-xl ${darkMode ? 'bg-red-600 hover:bg-red-700' : 'bg-red-500 hover:bg-red-600'} transition-all duration-200 hover:scale-105 text-white`}
+                >
+                  <LogOut className="w-5 h-5" />
+                </button>
+                <div className="absolute z-50 px-2 py-1 mt-2 text-xs text-white transition-opacity duration-200 transform -translate-x-1/2 bg-gray-900 rounded opacity-0 pointer-events-none left-1/2 top-full group-hover:opacity-100 whitespace-nowrap">
+                  Logout
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -442,7 +555,7 @@ const Dashboards = () => {
             <div className="relative z-10">
               <div className="flex flex-col justify-between gap-6 md:flex-row md:items-center">
                 <div className="flex items-center space-x-4">
-                  <div className="flex items-center justify-center w-12 h-12 shadow-lg rounded-xl bg-gradient-to-r from-blue-500 to-purple-600"><span role="img" aria-label="zap">⚡</span></div>
+                  <div className="flex items-center justify-center w-12 h-12 shadow-lg rounded-xl bg-gradient-to-r from-blue-500 to-purple-600"><Code className="w-6 h-6 text-white" /></div>
                   <div>
                     <h2 className="text-xl font-bold">Welcome to DevBoard! 🚀</h2>
                     <p className={`text-sm ${darkMode ? 'text-blue-200' : 'text-blue-700'}`}>Connect your coding profiles to unlock personalized stats</p>

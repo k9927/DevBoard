@@ -1,6 +1,8 @@
+import React, { useState } from 'react';
 import { AlertCircle, Link, HelpCircle, Star, GitFork, Users, Calendar, ExternalLink } from 'lucide-react';
 
 const GitHubSection = ({ darkMode, profileData, githubStats, loadingGithub, setShowProfileModal }) => {
+  const [showLanguagesTooltip, setShowLanguagesTooltip] = useState(false);
   // Function to format large numbers
   const formatNumber = (num) => {
     if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
@@ -74,7 +76,30 @@ const GitHubSection = ({ darkMode, profileData, githubStats, loadingGithub, setS
 
             {/* Top Languages */}
             {githubStats.topLanguages && githubStats.topLanguages.length > 0 && (
-              <div className={`p-3 rounded-lg mb-4 ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}> <div className="flex items-center justify-between mb-2"> <span className={`text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Top Languages</span> <span className="relative group"> <HelpCircle className="w-3.5 h-3.5 text-gray-400 cursor-pointer" /> <span className="absolute right-0 z-10 w-48 p-2 mt-1 text-xs text-white transition-opacity bg-gray-800 rounded opacity-0 pointer-events-none group-hover:opacity-100"> Based on the primary language of your public repositories </span> </span> </div> <div className="flex flex-wrap gap-2"> {githubStats.topLanguages.map((lang, index) => ( <div key={index} className="flex items-center space-x-1"> <div className={`w-2 h-2 rounded-full ${getLanguageColor(lang.name)}`}></div> <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>{lang.name}</span> </div> ))} </div> </div>
+              <div className={`p-3 rounded-lg mb-4 ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className={`text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Top Languages</span>
+                  <span className="relative">
+                    <HelpCircle 
+                      className="w-3.5 h-3.5 text-gray-400 cursor-pointer" 
+                      onClick={() => setShowLanguagesTooltip(!showLanguagesTooltip)}
+                    />
+                    {showLanguagesTooltip && (
+                      <span className="absolute right-0 z-10 w-48 p-2 mt-1 text-xs text-white bg-gray-800 rounded">
+                        Based on the primary language of your public repositories
+                      </span>
+                    )}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {githubStats.topLanguages.map((lang, index) => (
+                    <div key={index} className="flex items-center space-x-1">
+                      <div className={`w-2 h-2 rounded-full ${getLanguageColor(lang.name)}`}></div>
+                      <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>{lang.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
 
             {/* Top Repo */}

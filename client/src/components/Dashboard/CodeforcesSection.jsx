@@ -1,6 +1,8 @@
+import React, { useState } from 'react';
 import { AlertCircle, Link, HelpCircle, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
 const CodeforceSection = ({ darkMode, profileData, codeforcesStats, loadingCodeforces, setShowProfileModal }) => {
+  const [showContributionTooltip, setShowContributionTooltip] = useState(false);
   const getRankColor = (rating) => {
     if (rating >= 3000) return 'text-red-600'; // Legendary Grandmaster
     if (rating >= 2600) return 'text-red-500'; // International Grandmaster
@@ -62,11 +64,16 @@ const CodeforceSection = ({ darkMode, profileData, codeforcesStats, loadingCodef
                 <div className="text-lg font-bold text-blue-500">{codeforcesStats.contribution ?? 0}</div>
                 <div className="flex items-center justify-center gap-1 text-xs">
                   <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>Contribution</span>
-                  <span className="relative group">
-                    <HelpCircle className="w-3.5 h-3.5 text-gray-400 cursor-pointer" />
-                    <span className="absolute z-10 w-48 p-2 mt-1 text-xs text-white transition-opacity -translate-x-1/2 bg-black rounded opacity-0 pointer-events-none bg-opacity-80 left-1/2 group-hover:opacity-100">
-                      Represents your helpfulness on Codeforces via posts, blogs, and problem contributions.
-                    </span>
+                  <span className="relative">
+                    <HelpCircle 
+                      className="w-3.5 h-3.5 text-gray-400 cursor-pointer" 
+                      onClick={() => setShowContributionTooltip(!showContributionTooltip)}
+                    />
+                    {showContributionTooltip && (
+                      <span className="absolute z-10 w-48 p-2 mt-1 text-xs text-white bg-black rounded left-1/2 -translate-x-1/2 bg-opacity-80">
+                        Represents your helpfulness on Codeforces via posts, blogs, and problem contributions.
+                      </span>
+                    )}
                   </span>
                 </div>
               </div>

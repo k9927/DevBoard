@@ -1,6 +1,10 @@
+import React, { useState } from 'react';
 import { AlertCircle, Link, HelpCircle } from 'lucide-react';
 
-const LeetCodeSection = ({ darkMode, profileData, leetcodeStats, loadingLeetcode, setShowProfileModal }) => (
+const LeetCodeSection = ({ darkMode, profileData, leetcodeStats, loadingLeetcode, setShowProfileModal }) => {
+  const [showReputationTooltip, setShowReputationTooltip] = useState(false);
+
+  return (
   <div className="space-y-4">
     {profileData.leetcode ? (
       loadingLeetcode ? (
@@ -35,11 +39,16 @@ const LeetCodeSection = ({ darkMode, profileData, leetcodeStats, loadingLeetcode
               <div className="text-2xl font-bold text-purple-500">{leetcodeStats.reputation ?? 0}</div>
               <div className="flex items-center justify-center gap-1 text-xs">
                 Reputation
-                <span className="relative group">
-                  <HelpCircle className="w-3.5 h-3.5 text-gray-400 cursor-pointer" />
-                  <span className="absolute z-10 w-48 p-2 mt-1 text-xs text-white transition-opacity -translate-x-1/2 bg-gray-800 rounded opacity-0 pointer-events-none left-1/2 group-hover:opacity-100">
-                    Reputation is earned from upvotes on your LeetCode Discuss posts and comments. It is not related to problem solving or contests.
-                  </span>
+                <span className="relative">
+                  <HelpCircle 
+                    className="w-3.5 h-3.5 text-gray-400 cursor-pointer" 
+                    onClick={() => setShowReputationTooltip(!showReputationTooltip)}
+                  />
+                  {showReputationTooltip && (
+                    <span className="absolute z-10 w-48 p-2 mt-1 text-xs text-white bg-gray-800 rounded left-1/2 -translate-x-1/2">
+                      Reputation is earned from upvotes on your LeetCode Discuss posts and comments. It is not related to problem solving or contests.
+                    </span>
+                  )}
                 </span>
               </div>
             </div>
@@ -85,7 +94,8 @@ const LeetCodeSection = ({ darkMode, profileData, leetcodeStats, loadingLeetcode
         <button onClick={() => setShowProfileModal(true)} className="flex items-center px-4 py-2 mx-auto space-x-2 text-white transition-all bg-yellow-600 rounded-lg hover:bg-yellow-700"><Link className="w-4 h-4" /><span>Setup Profile</span></button>
       </div>
     )}
-  </div>
-);
+    </div>
+  );
+};
 
 export default LeetCodeSection; 

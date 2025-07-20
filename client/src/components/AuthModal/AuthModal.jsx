@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   CheckCircle, XCircle, AlertCircle, Loader2,
-  Eye, EyeOff, ArrowRight
+  Eye, EyeOff, ArrowRight, ArrowLeft
 } from 'lucide-react';
 import PasswordStrengthIndicator from './PasswordStrengthIndicator';
 
@@ -36,15 +36,75 @@ const AuthModal = ({
     }
   };
 
+  const getTitleAndSubtitle = () => {
+    switch (authMode) {
+      case 'login':
+        return {
+          title: 'Welcome Back!',
+          subtitle: 'Sign in to your account'
+        };
+      case 'signup':
+        return {
+          title: 'Join DevBoard',
+          subtitle: 'Create your developer account'
+        };
+      case 'forgot-password':
+        return {
+          title: 'Reset Password',
+          subtitle: 'Enter your email to receive reset instructions'
+        };
+      default:
+        return {
+          title: 'Welcome Back!',
+          subtitle: 'Sign in to your account'
+        };
+    }
+  };
+
+  const getButtonText = () => {
+    if (isLoading) {
+      switch (authMode) {
+        case 'login':
+          return 'Signing In...';
+        case 'signup':
+          return 'Creating Account...';
+        case 'forgot-password':
+          return 'Sending Email...';
+        default:
+          return 'Loading...';
+      }
+    } else {
+      switch (authMode) {
+        case 'login':
+          return 'Sign In';
+        case 'signup':
+          return 'Create Account';
+        case 'forgot-password':
+          return 'Send Reset Email';
+        default:
+          return 'Submit';
+      }
+    }
+  };
+
+  // Only show password-related errors if not in forgot-password mode
+  const shouldShowPasswordError = authMode !== 'forgot-password' && passwordError;
+  const shouldShowConfirmPasswordError = authMode === 'signup' && confirmPasswordError;
+  
+  // For forgot password, only show email-related errors or general errors
+  const shouldShowError = error && (authMode === 'forgot-password' ? !passwordError : true);
+
+  const { title, subtitle } = getTitleAndSubtitle();
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 animate-fade-in">
       <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-2xl p-8 max-w-md w-full transform transition-all duration-300 scale-100 max-h-[90vh] overflow-y-auto shadow-2xl`}>
         <div className="mb-6 text-center">
           <h2 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'} mb-2`}>
-            {authMode === 'login' ? 'Welcome Back!' : 'Join DevBoard'}
+            {title}
           </h2>
           <p className={`${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-            {authMode === 'login' ? 'Sign in to your account' : 'Create your developer account'}
+            {subtitle}
           </p>
         </div>
 
@@ -87,47 +147,49 @@ const AuthModal = ({
             )}
           </div>
 
-          <div>
-            <div className="relative">
-              <input
-                type={showPassword ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="Password"
-                className={`w-full px-4 py-3 pr-12 rounded-lg border transition-all duration-200 ${
-                  passwordError 
-                    ? 'border-red-500 focus:ring-red-500' 
-                    : password && isPasswordValid 
-                      ? 'border-green-500 focus:ring-green-500'
-                      : darkMode 
-                        ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:ring-blue-500' 
-                        : 'bg-gray-50 border-gray-300 text-gray-900 focus:ring-blue-500'
-                } focus:outline-none focus:ring-2`}
-                disabled={isLoading}
-                autoComplete={authMode === 'signup' ? 'new-password' : 'current-password'}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute inset-y-0 right-0 flex items-center pr-3 transition-transform hover:scale-110"
-                disabled={isLoading}
-              >
-                {showPassword ? (
-                  <EyeOff className={`w-5 h-5 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`} />
-                ) : (
-                  <Eye className={`w-5 h-5 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`} />
-                )}
-              </button>
+          {authMode !== 'forgot-password' && (
+            <div>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder="Password"
+                  className={`w-full px-4 py-3 pr-12 rounded-lg border transition-all duration-200 ${
+                    shouldShowPasswordError
+                      ? 'border-red-500 focus:ring-red-500' 
+                      : password && isPasswordValid 
+                        ? 'border-green-500 focus:ring-green-500'
+                        : darkMode 
+                          ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:ring-blue-500' 
+                          : 'bg-gray-50 border-gray-300 text-gray-900 focus:ring-blue-500'
+                  } focus:outline-none focus:ring-2`}
+                  disabled={isLoading}
+                  autoComplete={authMode === 'signup' ? 'new-password' : 'current-password'}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 transition-transform hover:scale-110"
+                  disabled={isLoading}
+                >
+                  {showPassword ? (
+                    <EyeOff className={`w-5 h-5 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`} />
+                  ) : (
+                    <Eye className={`w-5 h-5 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`} />
+                  )}
+                </button>
+              </div>
+              {shouldShowPasswordError && (
+                <p className="flex items-center mt-1 text-sm text-red-500 animate-slide-in">
+                  <AlertCircle className="w-4 h-4 mr-1" />
+                  {passwordError}
+                </p>
+              )}
+              {authMode === 'signup' && <PasswordStrengthIndicator password={password} darkMode={darkMode} />}
             </div>
-            {passwordError && (
-              <p className="flex items-center mt-1 text-sm text-red-500 animate-slide-in">
-                <AlertCircle className="w-4 h-4 mr-1" />
-                {passwordError}
-              </p>
-            )}
-            {authMode === 'signup' && <PasswordStrengthIndicator password={password} darkMode={darkMode} />}
-          </div>
+          )}
 
           {authMode === 'signup' && (
             <div>
@@ -139,7 +201,7 @@ const AuthModal = ({
                   onKeyPress={handleKeyPress}
                   placeholder="Confirm password"
                   className={`w-full px-4 py-3 pr-12 rounded-lg border transition-all duration-200 ${
-                    confirmPasswordError 
+                    shouldShowConfirmPasswordError
                       ? 'border-red-500 focus:ring-red-500' 
                       : confirmPassword && isConfirmPasswordValid 
                         ? 'border-green-500 focus:ring-green-500'
@@ -163,7 +225,7 @@ const AuthModal = ({
                   )}
                 </button>
               </div>
-              {confirmPasswordError && (
+              {shouldShowConfirmPasswordError && (
                 <p className="flex items-center mt-1 text-sm text-red-500 animate-slide-in">
                   <AlertCircle className="w-4 h-4 mr-1" />
                   {confirmPasswordError}
@@ -172,7 +234,7 @@ const AuthModal = ({
             </div>
           )}
 
-          {error && (
+          {shouldShowError && (
             <div className="p-3 border border-red-200 rounded-lg bg-red-50 animate-slide-in">
               <p className="flex items-center text-sm text-red-600">
                 <AlertCircle className="w-4 h-4 mr-2" />
@@ -183,31 +245,56 @@ const AuthModal = ({
 
           <button
             type="submit"
-            disabled={isLoading}
+            disabled={isLoading || (authMode === 'forgot-password' && !isEmailValid)}
             className="flex items-center justify-center w-full py-3 font-semibold text-white transition-all duration-200 transform rounded-lg shadow-lg bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
           >
             {isLoading ? (
               <>
                 <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                {authMode === 'login' ? 'Signing In...' : 'Creating Account...'}
+                {getButtonText()}
               </>
             ) : (
-              authMode === 'login' ? 'Sign In' : 'Create Account'
+              getButtonText()
             )}
           </button>
         </form>
 
         <div className="mt-6 text-center">
-          <p className={`${darkMode ? 'text-gray-400' : 'text-gray-600'} text-sm`}>
-            {authMode === 'login' ? "Don't have an account?" : "Already have an account?"}
-            <button
-              onClick={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')}
-              className="ml-1 font-medium text-blue-500 transition-all hover:text-blue-400 disabled:opacity-50 hover:underline"
-              disabled={isLoading}
-            >
-              {authMode === 'login' ? 'Sign up' : 'Sign in'}
-            </button>
-          </p>
+          {authMode === 'forgot-password' ? (
+            <p className={`${darkMode ? 'text-gray-400' : 'text-gray-600'} text-sm`}>
+              Remember your password?
+              <button
+                onClick={() => setAuthMode('login')}
+                className="ml-1 font-medium text-blue-500 transition-all hover:text-blue-400 disabled:opacity-50 hover:underline"
+                disabled={isLoading}
+              >
+                Sign in
+              </button>
+            </p>
+          ) : (
+            <p className={`${darkMode ? 'text-gray-400' : 'text-gray-600'} text-sm`}>
+              {authMode === 'login' ? "Don't have an account?" : "Already have an account?"}
+              <button
+                onClick={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')}
+                className="ml-1 font-medium text-blue-500 transition-all hover:text-blue-400 disabled:opacity-50 hover:underline"
+                disabled={isLoading}
+              >
+                {authMode === 'login' ? 'Sign up' : 'Sign in'}
+              </button>
+            </p>
+          )}
+          
+          {authMode === 'login' && (
+            <div className="mt-2">
+              <button
+                onClick={() => setAuthMode('forgot-password')}
+                className="text-sm font-medium text-blue-500 transition-all hover:text-blue-400 disabled:opacity-50 hover:underline"
+                disabled={isLoading}
+              >
+                Forgot your password?
+              </button>
+            </div>
+          )}
         </div>
 
         <button

@@ -107,6 +107,39 @@ const LandingPage = () => {
     setError("");
     setIsLoading(true);
 
+    // Handle forgot password mode
+    if (authMode === 'forgot-password') {
+      const emailValid = validateEmail(email);
+      if (!emailValid) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const res = await axios.post('http://localhost:3000/forgot-password', {
+          email,
+        });
+
+        setEmail("");
+        setError("");
+        setEmailError("");
+        setShowAuthModal(false);
+        
+        showToast('Password reset email sent! Check your inbox.', 'success');
+        
+      } catch (err) {
+        if (err.response && err.response.data && err.response.data.error) {
+          setError(err.response.data.error);
+        } else {
+          setError("Failed to send reset email. Try again.");
+        }
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
+
+    // Handle login and signup modes
     const emailValid = validateEmail(email);
     const passwordValid = validatePassword(password);
     const confirmPasswordValid = validateConfirmPassword(confirmPassword);
@@ -201,12 +234,7 @@ const LandingPage = () => {
                 <ArrowRight className="w-5 h-5" />
               </button>
               
-              <button 
-                onClick={() => showToast('Demo feature coming soon!', 'info')}
-                className={`px-8 py-4 border-2 ${darkMode ? 'border-gray-600 text-gray-300 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-50'} rounded-xl font-semibold text-lg transition-all duration-200 hover:scale-105`}
-              >
-                View Demo
-              </button>
+            
             </div>
           </div>
         </div>
@@ -258,8 +286,8 @@ const LandingPage = () => {
             
             <FeatureCard
               icon={FileText}
-              title="Code Snippets"
-              description="Store and organize your frequently used code snippets, algorithms, and templates for quick access."
+            title="Weekly Summary"
+              description="Track your weekly progress with detailed analytics, productivity scores, and motivational insights to keep you motivated."
               gradient="from-red-400 to-pink-500"
               darkMode={darkMode}
             />
