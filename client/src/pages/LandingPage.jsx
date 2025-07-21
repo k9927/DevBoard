@@ -7,6 +7,8 @@ import FeatureCard from '../components/FeatureCard';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
+const API_URL = import.meta.env.VITE_API_URL;
+
 const LandingPage = () => {
   const [darkMode, setDarkMode] = useState(true);
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -116,7 +118,7 @@ const LandingPage = () => {
       }
 
       try {
-        const res = await axios.post('http://localhost:3000/forgot-password', {
+        const res = await axios.post(`${API_URL}/forgot-password`, {
           email,
         });
 
@@ -151,7 +153,7 @@ const LandingPage = () => {
 
     try {
       const endpoint = authMode === "signup" ? "/signup" : "/login";
-      const res = await axios.post(`http://localhost:3000${endpoint}`, {
+      const res = await axios.post(`${API_URL}${endpoint}`, {
         email,
         password,
       });

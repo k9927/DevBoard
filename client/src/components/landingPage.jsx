@@ -306,6 +306,8 @@ const Toast = ({ message, type, onClose }) => {
   );
 };
 
+const API_URL = import.meta.env.VITE_API_URL;
+
 export default function DevBoardLanding() {
   const [darkMode, setDarkMode] = useState(true);
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -425,7 +427,7 @@ export default function DevBoardLanding() {
 
     try {
       const endpoint = authMode === "signup" ? "/signup" : "/login";
-      const res = await axios.post(`http://localhost:3000${endpoint}`, {
+      const res = await axios.post(`${API_URL}${endpoint}`, {
         email,
         password,
       });
