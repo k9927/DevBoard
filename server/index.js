@@ -22,19 +22,25 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 const port=3000;
-const db = new pg.Client({
+const db = new pg.Pool({
   user: process.env.PGUSER,
   host: process.env.PGHOST,
   database: process.env.PGDATABASE,
   password: process.env.PGPASSWORD,
   port: process.env.PGPORT,
   ssl: {
-      require: true,
-  rejectUnauthorized: false
+    require: true,
+    rejectUnauthorized: false
   },
 });
 
-db.connect();
+// Global error handlers
+process.on('unhandledRejection', (err) => {
+  console.error('Unhandled rejection:', err);
+});
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception:', err);
+});
 
 // Email transporter setup
 const transporter = nodemailer.createTransport({
