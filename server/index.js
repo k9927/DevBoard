@@ -13,7 +13,6 @@ dotenv.config();
 const app=express();
 app.use(cors({
   origin: [
-    "https://dev-board-7cuzc8ssm-k9927s-projects.vercel.app",
     "https://dev-board-kappa.vercel.app"
   ],
   credentials: true,
