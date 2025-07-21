@@ -11,6 +11,17 @@ import nodemailer from 'nodemailer';
 dotenv.config();
 
 const app=express();
+app.use(cors({
+  origin: [
+    "https://dev-board-7cuzc8ssm-k9927s-projects.vercel.app",
+    "https://dev-board-kappa.vercel.app"
+  ],
+  credentials: true,
+}));
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
 const port=3000;
 const db = new pg.Client({
   user: process.env.PGUSER,
@@ -870,13 +881,7 @@ app.get('/api/weekly-summary', authenticate, async (req, res) => {
   }
 });
 
-app.use(cors({
-  origin: [
-    "https://dev-board-7cuzc8ssm-k9927s-projects.vercel.app",
-    "https://dev-board-kappa.vercel.app"
-  ],
-  credentials: true,
-}));
+
 
 app.listen(port,()=>{
     console.log(`Server is running on port ${port}`);
