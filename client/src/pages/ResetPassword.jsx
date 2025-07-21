@@ -3,6 +3,8 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { CheckCircle, XCircle, AlertCircle, Loader2, Eye, EyeOff } from 'lucide-react';
 import PasswordStrengthIndicator from '../components/AuthModal/PasswordStrengthIndicator';
 
+const API_URL = import.meta.env.VITE_API_URL;
+
 const ResetPassword = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -32,7 +34,7 @@ const ResetPassword = () => {
     }
 
     // Verify token
-    fetch(`http://localhost:3000/verify-reset-token/${token}`)
+    fetch(`${API_URL}/verify-reset-token/${token}`)
       .then(res => res.json())
       .then(data => {
         if (data.valid) {
@@ -61,7 +63,7 @@ const ResetPassword = () => {
     setError('');
 
     try {
-      const response = await fetch('http://localhost:3000/reset-password', {
+      const response = await fetch(`${API_URL}/reset-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
