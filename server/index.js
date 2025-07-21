@@ -12,21 +12,19 @@ dotenv.config();
 
 const app=express();
 const port=3000;
-const db=new pg.Client({
-user:process.env.DB_USER,
-host:process.env.DB_HOST,
-database:process.env.DB_NAME,
-password:process.env.DB_PASSWORD,
-port:process.env.DB_PORT,
+const db = new pg.Client({
+  user: process.env.PGUSER,
+  host: process.env.PGHOST,
+  database: process.env.PGDATABASE,
+  password: process.env.PGPASSWORD,
+  port: process.env.PGPORT,
+  ssl: {
+      require: true,
+  rejectUnauthorized: false
+  },
 });
-db.connect();
-app.use(bodyParser.urlencoded({extended:true}));
-app.use(bodyParser.json());
 
-app.use(cors({
-  origin: "http://localhost:5173", // React/Vite port
-  credentials: true,               // if you ever use cookies
-}));
+db.connect();
 
 // Email transporter setup
 const transporter = nodemailer.createTransport({
@@ -63,12 +61,6 @@ app.post("/forgot-password", async (req, res) => {
     if (user.rows.length === 0) {
       return res.status(404).json({ error: "User not found" });
     }
-
-    // Debug: Log email configuration (without showing password)
-    console.log("Email config check:");
-    console.log("EMAIL_USER:", process.env.EMAIL_USER);
-    console.log("EMAIL_PASS length:", process.env.EMAIL_PASS ? process.env.EMAIL_PASS.length : "undefined");
-    console.log("EMAIL_PASS first 4 chars:", process.env.EMAIL_PASS ? process.env.EMAIL_PASS.substring(0, 4) : "undefined");
 
     // Generate reset token
     const resetToken = crypto.randomBytes(32).toString('hex');
@@ -401,7 +393,7 @@ app.post("/api/profiles", authenticate, async (req, res) => {
 
   try {
     await db.query(`
-      INSERT INTO connected_profiles (user_id, leetcode_username, codeforces_handle, github_username)
+      INSERT INTO public.connected_profiles (user_id, leetcode_username, codeforces_handle, github_username)
       VALUES ($1, $2, $3, $4)
       ON CONFLICT (user_id) DO UPDATE
       SET leetcode_username = EXCLUDED.leetcode_username,
