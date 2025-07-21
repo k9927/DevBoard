@@ -97,9 +97,10 @@ npm start
 ---
 
 ## 🏆 Why This Project Stands Out
-- **End-to-end authentication and password reset**
-- **Production deployment (not just localhost!)**
-- **Modern React and Express best practices**
-- **Secure, scalable, and ready for real users**
-- **Great for resumes and portfolio demos**
+
+- 🧩 **Full-stack, production-grade architecture** with secure JWT auth, password reset, and email integration
+- 📊 **Integrated external APIs and profiles** (LeetCode, GitHub, Codeforces) to give users a centralized productivity hub
+- 🛠️ **Deployed and scalable** with PostgreSQL (Neon), Express.js API (Railway), and a React+Vite frontend (Vercel)
+- 💡 **Custom dashboard UI** with persistent goal tracking, resource bookmarking, and weekly summaries
+- 🧪 **Strong dev practices**: modular code, `.env` configs, mobile responsiveness, and clean error handling
 
