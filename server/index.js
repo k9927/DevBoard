@@ -84,7 +84,7 @@ app.post("/forgot-password", async (req, res) => {
     );
 
     // Create reset URL
-    const resetUrl = `http://localhost:5173/reset-password?token=${resetToken}`;
+    const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
 
     // Email content
     const mailOptions = {
