@@ -870,6 +870,14 @@ app.get('/api/weekly-summary', authenticate, async (req, res) => {
   }
 });
 
+app.use(cors({
+  origin: [
+    "https://dev-board-7cuzc8ssm-k9927s-projects.vercel.app",
+    "https://dev-board-kappa.vercel.app"
+  ],
+  credentials: true,
+}));
+
 app.listen(port,()=>{
     console.log(`Server is running on port ${port}`);
 })
