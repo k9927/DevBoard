@@ -91,8 +91,10 @@ npm start
 ---
 
 ## 🌟 Screenshots
+<img width="1918" height="881" alt="image" src="https://github.com/user-attachments/assets/0aabeb45-a7cf-4dd4-bee0-59d4bcc21b21" />
+<img width="1915" height="888" alt="image" src="https://github.com/user-attachments/assets/7adaea8f-5fee-429d-a8ae-25a32714015f" />
 
-> Add screenshots or GIFs here to show off your UI and features!
+
 
 ---
 
