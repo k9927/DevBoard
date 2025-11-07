@@ -8,16 +8,21 @@ import cors from "cors";
 import fetch from 'node-fetch';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
+import { createServerlessExpress } from "@vercel/node";
 dotenv.config();
 
 const app=express();
-app.use(cors({
-  origin: [
-    "https://dev-board-kappa.vercel.app"
-  ],
-  credentials: true,
-}));
-
+app.use(
+  cors({
+    origin: [
+      "https://dev-board-kappa.vercel.app",  // your frontend
+      "https://dev-board-96n2.vercel.app"    // your backend (optional but safe)
+    ],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+  })
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -888,6 +893,4 @@ app.get('/api/weekly-summary', authenticate, async (req, res) => {
 
 
 
-app.listen(port,()=>{
-    console.log(`Server is running on port ${port}`);
-})
+export default createServerlessExpress(app);
