@@ -12,21 +12,29 @@ import { createServerlessExpress } from "@vercel/node";
 dotenv.config();
 
 const app=express();
-app.use(
-  cors({
-    origin: [
-      "https://dev-board-kappa.vercel.app",  // your frontend
-      "https://dev-board-96n2.vercel.app"    // your backend (optional but safe)
-    ],
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: true,
-  })
-);
+const allowedOrigins = [
+  "https://dev-board-kappa.vercel.app",  // frontend
+  "https://dev-board-96n2.vercel.app"    // backend (optional)
+];
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.header("Access-Control-Allow-Origin", origin);
+  }
+  res.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.header("Access-Control-Allow-Credentials", "true");
+  
+  if (req.method === "OPTIONS") {
+    return res.status(200).end(); // ✅ Stop redirect here
+  }
+
+  next();
+});
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-const port=3000;
 const db = new pg.Pool({
   user: process.env.PGUSER,
   host: process.env.PGHOST,
