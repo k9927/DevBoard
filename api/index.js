@@ -94,16 +94,21 @@ process.on('uncaughtException', (err) => {
   console.error('Uncaught exception:', err);
 });
 
-// Email transporter setup
+// Email transporter setup (Gmail + app password)
+// Google displays app passwords with spaces; accept either format.
+const EMAIL_PASS_CLEAN = (process.env.EMAIL_PASS || "").replace(/\s+/g, "");
+
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: "smtp.gmail.com",
+  port: 465,
+  secure: true,
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
+    pass: EMAIL_PASS_CLEAN,
   },
-  tls: {
-    rejectUnauthorized: false
-  }
+  connectionTimeout: 10_000,
+  greetingTimeout: 10_000,
+  socketTimeout: 20_000,
 });
 
 const authenticate = async (req, res, next) => {
@@ -179,7 +184,13 @@ app.post("/api/forgot-password", async (req, res) => {
     res.json({ message: "Password reset email sent successfully" });
   } catch (err) {
     console.error("Forgot password error:", err);
-    res.status(500).json({ error: "Failed to send reset email" });
+    res.status(500).json({
+      error: "Failed to send reset email",
+      mail_error: {
+        code: err?.code || null,
+        responseCode: err?.responseCode || null,
+      },
+    });
   }
 });
 
