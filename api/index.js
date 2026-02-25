@@ -8,7 +8,6 @@ import cors from "cors";
 import fetch from 'node-fetch';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
-import serverless from "serverless-http";
 
 dotenv.config();
 
@@ -938,7 +937,9 @@ app.get('/api/weekly-summary', authenticate, async (req, res) => {
 
 
 // Support both serverless and local development
-if (process.env.IS_LOCAL || process.env.NODE_ENV !== 'production') {
+const IS_VERCEL = !!process.env.VERCEL;
+
+if (!IS_VERCEL && (process.env.IS_LOCAL || process.env.NODE_ENV !== 'production')) {
   const PORT = process.env.PORT || 3000;
   app.listen(PORT, () => {
     console.log(`🚀 Backend server running on http://localhost:${PORT}`);
@@ -946,4 +947,6 @@ if (process.env.IS_LOCAL || process.env.NODE_ENV !== 'production') {
   });
 }
 
-export default serverless(app);
+export default function handler(req, res) {
+  return app(req, res);
+}
