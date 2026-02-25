@@ -937,4 +937,13 @@ app.get('/api/weekly-summary', authenticate, async (req, res) => {
 
 
 
+// Support both serverless and local development
+if (process.env.IS_LOCAL || process.env.NODE_ENV !== 'production') {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    console.log(`🚀 Backend server running on http://localhost:${PORT}`);
+    console.log(`📡 API endpoints available at http://localhost:${PORT}/api`);
+  });
+}
+
 export default serverless(app);
