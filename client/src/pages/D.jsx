@@ -11,10 +11,12 @@ import GitHubSection from '../components/Dashboard/GitHubSection';
 import ActivitySection from '../components/Dashboard/ActivitySection';
 import SummarySection from '../components/Dashboard/SummarySection';
 import { Activity, BookOpen, Target, Zap, Trophy, Code, Github, Users, BarChart3, LogOut } from 'lucide-react';
+import { useNavigate } from "react-router-dom";
 
 const API_URL = import.meta.env.VITE_API_URL ?? '';
 
 const Dashboards = () => {
+  const navigate = useNavigate();
   const [darkMode, setDarkMode] = useState(true);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [expandedPlatform, setExpandedPlatform] = useState(null);
@@ -54,6 +56,10 @@ const Dashboards = () => {
   // Original data fetching logic
   const fetchBasicData = async () => {
     const token = localStorage.getItem('token');
+    if (!token) {
+      navigate("/", { replace: true });
+      return;
+    }
     const startTime = Date.now();
     
     try {
@@ -61,6 +67,12 @@ const Dashboards = () => {
       const profilesResponse = await fetch(`${API_URL}/api/profiles`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
+
+      if (profilesResponse.status === 401) {
+        localStorage.removeItem("token");
+        navigate("/", { replace: true });
+        return;
+      }
       
       let currentProfileData = {
         leetcode: '',
